@@ -4,6 +4,8 @@
 
 package com.lixiang.spring.context;
 
+import java.util.List;
+
 /**
  * 最基础的容器
  *
@@ -26,4 +28,10 @@ public interface XiongContext {
      * @return
      */
     Object getBeanByClass(Class clazz);
+
+    /**
+     * 获取所有的bean名称
+     * @return
+     */
+    List<String> getAllBeanName();
 }

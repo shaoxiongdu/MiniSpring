@@ -6,20 +6,16 @@
 ### 1. 定义主要的结构及注解
 
 - `XiongContext` `接口`：所有容器的公共接口
-
 - `XiongApplicationContext ` `实现`：实现了容器接口的普通容器
 - `XiongApplicationConfig` `接口` 容器的配置 接口
 - `ConfigurationImpl` `实现` 配置类形式的实现
     - `ComponentScan` `注解` 配置类中表示需要扫描的路径注解
-
 - `XmlImpl``实现` 读取外部xml文件的实现
 - `BeanDeffinition` `bean的定义类` 说明这里bean的各种属性。包括bean类型，单例还是多例等。
-
 - `Component` `注解` 表示这是一个bean的注解
-
 - `Scope` `注解` 直接表示bean是 单例还是多例
-
-- `ScopeEnum` 单例还是多例枚举类
+- `AutoWired` `注解` 自动注入注解
+- `ScopeEnum` `枚举` 单例还是多例枚举类
 
 ### 2. 实现容器的构造方法
 
@@ -51,9 +47,17 @@
 1. 通过参数中的bean定义对象获取对应的bean类
 2. 利用反射通过bean类获取无参构造方法
     - 如果获取失败，抛出异常
-3. 通过无参构造创建对象
+3. 通过无参构造创建实例
+4. 解决依赖注入
+    1. 利用反射循环该实例的所有属性
+        1. 如果属性上有AutoWirted注解 
+            1. 通过属性名称去容器中获取对应的bean
+            2. 设置属性的访问权限为可强制访问
+            3. 将容器中获取的bean设置到该属性中。
 
-### 4. 实现getBean方法
+5. 返回该实例
+
+### 4. 实现getBean(String beanName)方法
 
 - 判断bean定义map中是否有该beanName的key
     - 如果有
@@ -65,3 +69,15 @@
             - 创建bean并返回
     - 如果没有 抛出异常 `容器中没有该bean`
 
+### 5. 实现getBean(Class clazz)方法
+
+- 循环bean定义map
+  - 如果value(beanDefiniation)中的clazz和参数相同
+    - 获取当前元素的key 即为beanName
+      - 通过getBean(String beanName)获取bean并返回
+  - 如果不同 结束此次循环
+- 循环结束，抛出 容器中没有该类型的bean异常
+
+### 6. 实现getAllBeanName()方法
+
+- 将bean定义map的key转为list返回即可

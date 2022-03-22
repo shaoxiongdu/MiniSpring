@@ -4,6 +4,7 @@
 
 package com.lixiang.service;
 
+import com.lixiang.spring.annotation.Autowired;
 import com.lixiang.spring.annotation.Component;
 import com.lixiang.spring.annotation.Scope;
 import com.lixiang.spring.enums.ScopeEnum;
@@ -15,7 +16,17 @@ import com.lixiang.spring.enums.ScopeEnum;
  * @version 1.0
  * @date 2022/3/17 21:15
  */
-@Component(beanName = "userService")
+@Component
 @Scope(scope = ScopeEnum.多例)
 public class UserService {
+
+    @Autowired
+    private UserDao userDao;
+
+    @Override
+    public String toString() {
+        return "UserService{" +
+                "userDao=" + userDao +
+                '}';
+    }
 }

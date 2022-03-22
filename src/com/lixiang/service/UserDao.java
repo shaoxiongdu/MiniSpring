@@ -13,6 +13,6 @@ import com.lixiang.spring.annotation.Component;
  * @version 1.0
  * @date 2022/3/17 21:15
  */
-@Component(beanName = "userDao")
+@Component
 public class UserDao {
 }

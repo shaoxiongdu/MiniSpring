@@ -5,15 +5,21 @@
 package com.lixiang.spring.context.impl;
 
 import com.lixiang.spring.BeanDefinition;
+import com.lixiang.spring.annotation.Autowired;
 import com.lixiang.spring.annotation.Component;
 import com.lixiang.spring.annotation.ComponentScan;
 import com.lixiang.spring.annotation.Scope;
 import com.lixiang.spring.context.XiongContext;
 import com.lixiang.spring.enums.ScopeEnum;
 
+import java.beans.Introspector;
 import java.io.File;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -104,6 +110,16 @@ public class XiongApplicationContext implements XiongContext {
                                 //获取bean名称
                                 Component componentAnnotation = clazz.getAnnotation(Component.class);
                                 String beanName = componentAnnotation.beanName();
+                                //如果没有指定beanName 则默认类名 保持首字母小写 比如 UserService的beanName为userService
+                                if(Objects.isNull(beanName) || "".equals(beanName)){
+                                    //获取全类名
+                                    String allPackageName = clazz.getName();
+                                    //截取类名
+                                    beanName = allPackageName.substring(allPackageName.lastIndexOf(".") + 1,allPackageName.length());
+                                    //首字母转小写
+                                    beanName = Introspector.decapitalize(beanName);
+                                }
+
                                 //生成bean定义对象
                                 BeanDefinition beanDefinition = new BeanDefinition();
                                 //设置类型
@@ -146,7 +162,7 @@ public class XiongApplicationContext implements XiongContext {
                 Object bean = createBean(beanName, beanDefinition);
                 //添加到单例池
                 singletonPool.put(beanName, bean);
-                System.out.println("容器启动后，单例bean" + beanName + ":创建成功，并放入单例池中！");
+                System.out.println("容器启动后，单例bean[" + beanName + "]创建成功，并放入单例池中！");
             }
         }
     }
@@ -165,7 +181,7 @@ public class XiongApplicationContext implements XiongContext {
 
         //如果没有bean 抛出异常
         if (Objects.isNull(beanDefinition)) {
-            throw new NullPointerException("容器中没有名称为" + beanName + "的bean!");
+            throw new NullPointerException("容器中没有名称为[" + beanName + "]的bean!");
         }
 
         //判断单例还是多例
@@ -212,25 +228,70 @@ public class XiongApplicationContext implements XiongContext {
             System.out.println(beanName + "没有无参构造方法！创建失败");
         }
 
-        //通过构造方法创建bean对象
-        Object bean = null;
+        //通过构造方法创建bean实例
+        Object instance = null;
         try {
-            bean = constructor.newInstance();
+            instance = constructor.newInstance();
+
+            //解决bean的依赖注入
+            //获取所有属性
+
+            Field[] fields = instance.getClass().getDeclaredFields();
+            for (Field field : fields) {
+
+                //如果当前属性存在Autowired注解
+                if(field.isAnnotationPresent(Autowired.class)){
+
+                    //设置属性可强制读取
+                    field.setAccessible(true);
+                    //通过属性名去容器中获取对应的bean
+                    Object bean = getBeanByName(field.getName());
+                    //设置实例的该属性的值为容器中的对应bean
+                    field.set(instance,bean);
+                    System.out.println("容器中的bean[" + bean + "]自动注入到bean[" + instance.getClass().getName() + "]的属性[" + field.getName() + "]中。\n");
+                }
+            }
+
         } catch (Exception e) {
             e.printStackTrace();
         }
         //返回
-        return bean;
+        return instance;
     }
 
     /**
      * 通过类型获取bean
      *
-     * @param clazz bean类型
+     * @param targetClazz bean类型
      * @return bean
      */
     @Override
-    public Object getBeanByClass(Class clazz) {
-        return null;
+    public Object getBeanByClass(Class targetClazz) {
+
+        //循环bean定义map
+        for (Map.Entry<String, BeanDefinition> beanDefinitionEntry : beanDefinitionMap.entrySet()) {
+
+            //map中的bean定义对象
+            BeanDefinition beanDefinition = beanDefinitionEntry.getValue();
+            //bean名称
+            String beanName = beanDefinitionEntry.getKey();
+            //如果匹配到了需要到bean类型
+
+            if(beanDefinition.getClazz().equals(targetClazz)){
+                //通过名称获取bean
+                return getBeanByName(beanName);
+            }
+        }
+        throw new NullPointerException("容器中没有类型为:" + targetClazz.getName() + "的bean");
+    }
+
+    /**
+     * 获取所有的bean名称
+     *
+     * @return
+     */
+    @Override
+    public List<String> getAllBeanName() {
+        return new ArrayList<>(beanDefinitionMap.keySet());
     }
 }

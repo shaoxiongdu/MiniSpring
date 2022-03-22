@@ -4,7 +4,6 @@
 
 package com.lixiang;
 
-import com.lixiang.service.UserService;
 import com.lixiang.spring.config.impl.ConfigurationImpl;
 import com.lixiang.spring.context.XiongContext;
 import com.lixiang.spring.context.impl.XiongApplicationContext;
@@ -16,16 +15,13 @@ import com.lixiang.spring.context.impl.XiongApplicationContext;
  */
 public class Application {
 
-
     public static void main(String[] args) {
 
         //使用配置类的方式创建一个容器
         XiongContext xiongContext = new XiongApplicationContext(ConfigurationImpl.class);
 
-        //获取容器中的bean
-        UserService userService = (UserService) xiongContext.getBeanByName("userService");
-        UserService userService1 = (UserService) xiongContext.getBeanByName("userService");
+        System.out.println(xiongContext.getAllBeanName());
 
-        System.out.println(userService1.equals(userService));
+        System.out.println(xiongContext.getBeanByName("userService"));
     }
 }
