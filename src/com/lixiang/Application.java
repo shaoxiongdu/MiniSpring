@@ -20,8 +20,5 @@ public class Application {
         //使用配置类的方式创建一个容器
         XiongContext xiongContext = new XiongApplicationContext(ConfigurationImpl.class);
 
-        System.out.println(xiongContext.getAllBeanName());
-
-        System.out.println(xiongContext.getBeanByName("userService"));
     }
 }

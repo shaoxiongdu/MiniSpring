@@ -5,12 +5,16 @@
 package com.lixiang.spring.context.impl;
 
 import com.lixiang.spring.BeanDefinition;
+import com.lixiang.spring.Utils;
 import com.lixiang.spring.annotation.Autowired;
 import com.lixiang.spring.annotation.Component;
 import com.lixiang.spring.annotation.ComponentScan;
 import com.lixiang.spring.annotation.Scope;
 import com.lixiang.spring.context.XiongContext;
 import com.lixiang.spring.enums.ScopeEnum;
+import com.lixiang.spring.interfaces.BeanNameAware;
+import com.lixiang.spring.interfaces.BeanPostProcessor;
+import com.lixiang.spring.interfaces.InitializingBean;
 
 import java.beans.Introspector;
 import java.io.File;
@@ -43,17 +47,17 @@ public class XiongApplicationContext implements XiongContext {
     private ConcurrentHashMap<String, BeanDefinition> beanDefinitionMap = new ConcurrentHashMap<>();
 
     /**
-     * 单例池
+     * 单例池 存放容器中所有的单例bean  key bean名称 value bean对象
      */
     private ConcurrentHashMap<String, Object> singletonPool = new ConcurrentHashMap<>();
 
     /**
+     * 实现了该接口的所有bean集合
+     */
+    private ArrayList<BeanPostProcessor> beanPostProcessorArrayList = new ArrayList<>();
+
+    /**
      * 以配置类的形式创建一个容器
-     * 扫描配置类中设置的路径
-     * - 如果文件是字节码文件
-     * - 判断是否有component注解
-     * - 如果有 创建bean定义对象 添加到bean定义map中
-     *
      * @param configClazz 配置类
      */
     public XiongApplicationContext(Class configClazz) {
@@ -89,7 +93,7 @@ public class XiongApplicationContext implements XiongContext {
                     //绝对路径
                     String absolutePath = f.getAbsolutePath();
                     // /Users/dushaoxiong/workspace/XiongSpring/out/production/XiongSpring/com/lixiang/service/UserService.class
-                    System.out.println("扫描到到文件的绝对路径：" + absolutePath);
+                    System.out.println("\n\t扫描到到文件的绝对路径：" + absolutePath);
                     //如果是字节码文件
                     if(absolutePath.endsWith(".class")){
 
@@ -105,7 +109,17 @@ public class XiongApplicationContext implements XiongContext {
 
                             //判断当前类是否有component注解
                             if (clazz.isAnnotationPresent(Component.class)) {
-                                System.out.println("类：" + clazz + " 有Component注解 需要我们加入容器中！");
+                                System.out.println("\t类：" + clazz + " 有Component注解 需要我们加入容器中！");
+
+                                //判断是否实现了BeanPostProcessor接口
+                                if(BeanPostProcessor.class.isAssignableFrom(clazz)){
+                                    try {
+                                        //添加到对应list中
+                                        beanPostProcessorArrayList.add((BeanPostProcessor) clazz.newInstance());
+                                    } catch (InstantiationException | IllegalAccessException e) {
+                                        e.printStackTrace();
+                                    }
+                                }
 
                                 //获取bean名称
                                 Component componentAnnotation = clazz.getAnnotation(Component.class);
@@ -141,7 +155,7 @@ public class XiongApplicationContext implements XiongContext {
                                 beanDefinitionMap.put(beanName, beanDefinition);
 
                             } else {
-                                System.out.println(clazz.getName() + "没有component注解，不需要创建！");
+                                System.out.println("\t" + clazz.getName() + "没有component注解，不需要创建！");
                             }
                         } catch (ClassNotFoundException e) {
                             e.printStackTrace();
@@ -150,10 +164,11 @@ public class XiongApplicationContext implements XiongContext {
                     }
                 }
             }
-            System.out.println("bean定义map:" + beanDefinitionMap);
+            Utils.printString(60," - ");
         }
 
         //创建bean定义map中的所有单例bean
+        System.out.println("\n\t 创建所有的单例bean:\n\t");
         for (String beanName : beanDefinitionMap.keySet()) {
             BeanDefinition beanDefinition = beanDefinitionMap.get(beanName);
             //如果是单例
@@ -162,10 +177,86 @@ public class XiongApplicationContext implements XiongContext {
                 Object bean = createBean(beanName, beanDefinition);
                 //添加到单例池
                 singletonPool.put(beanName, bean);
-                System.out.println("容器启动后，单例bean[" + beanName + "]创建成功，并放入单例池中！");
+                System.out.println("\n\t单例bean[" + beanName + "]创建成功，并放入单例池中！");
             }
         }
     }
+
+    /**
+     * 利用反射创建一个bean
+     *
+     * @param beanName       bean名称
+     * @param beanDefinition bean定义对象
+     * @return 创建好的bean
+     */
+    private Object createBean(String beanName, BeanDefinition beanDefinition) {
+
+        System.out.println("\n\t " + beanName + "  开始创建");
+
+        Class clazz = beanDefinition.getClazz();
+
+        //获取clazz对应的无参构造
+        Constructor constructor = null;
+        try {
+            constructor = clazz.getConstructor();
+        } catch (NoSuchMethodException e) {
+            System.out.println(beanName + "没有无参构造方法！创建失败");
+        }
+
+        //通过构造方法创建bean实例
+        Object instance = null;
+        try {
+            assert constructor != null;
+            instance = constructor.newInstance();
+
+            //解决bean的依赖注入
+            //获取所有属性
+            Field[] fields = instance.getClass().getDeclaredFields();
+            for (Field field : fields) {
+
+                //如果当前属性存在Autowired注解
+                if(field.isAnnotationPresent(Autowired.class)){
+                    //设置属性可强制读取
+                    field.setAccessible(true);
+                    //通过属性名去容器中获取对应的bean
+                    Object bean = getBeanByName(field.getName());
+                    //设置实例的该属性的值为容器中的对应bean
+                    field.set(instance,bean);
+                    System.out.println("\t容器中的bean[" + bean + "]自动注入到bean[" + instance.getClass().getName() + "]的属性[" + field.getName() + "]中。\n");
+                }
+            }
+            //beanNameAware接口
+            if(instance instanceof BeanNameAware){
+                //调用对应的setBeanName方法
+                ((BeanNameAware) instance).setBeanName(beanName);
+            }
+
+            //初始化每个bean之前 执行所有的前置处理器
+            for (BeanPostProcessor beanPostProcessor : beanPostProcessorArrayList) {
+                 instance = beanPostProcessor.postProcessBeforeInitialization(beanName,instance);
+            }
+
+            //初始化
+            if(instance instanceof InitializingBean){
+                //调用对应对方法
+                ((InitializingBean) instance).afterProperties();
+            }
+
+            //初始化每个bean之后 执行所有的后置处理器
+            for (BeanPostProcessor beanPostProcessor : beanPostProcessorArrayList) {
+                instance =  beanPostProcessor.postProcessAfterInitialization(beanName, instance);
+            }
+
+            System.out.println("\t" + beanName + " 创建完成");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        //返回
+        return instance;
+    }
+
 
     /**
      * 通过名称获取bean
@@ -207,56 +298,6 @@ public class XiongApplicationContext implements XiongContext {
             return bean;
         }
         return null;
-    }
-
-
-    /**
-     * 利用反射创建一个bean
-     *
-     * @param beanName       bean名称
-     * @param beanDefinition bean定义对象
-     * @return 创建好的bean
-     */
-    private Object createBean(String beanName, BeanDefinition beanDefinition) {
-        Class clazz = beanDefinition.getClazz();
-
-        //获取clazz对应的无残构造
-        Constructor constructor = null;
-        try {
-            constructor = clazz.getConstructor();
-        } catch (NoSuchMethodException e) {
-            System.out.println(beanName + "没有无参构造方法！创建失败");
-        }
-
-        //通过构造方法创建bean实例
-        Object instance = null;
-        try {
-            instance = constructor.newInstance();
-
-            //解决bean的依赖注入
-            //获取所有属性
-
-            Field[] fields = instance.getClass().getDeclaredFields();
-            for (Field field : fields) {
-
-                //如果当前属性存在Autowired注解
-                if(field.isAnnotationPresent(Autowired.class)){
-
-                    //设置属性可强制读取
-                    field.setAccessible(true);
-                    //通过属性名去容器中获取对应的bean
-                    Object bean = getBeanByName(field.getName());
-                    //设置实例的该属性的值为容器中的对应bean
-                    field.set(instance,bean);
-                    System.out.println("容器中的bean[" + bean + "]自动注入到bean[" + instance.getClass().getName() + "]的属性[" + field.getName() + "]中。\n");
-                }
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        //返回
-        return instance;
     }
 
     /**
