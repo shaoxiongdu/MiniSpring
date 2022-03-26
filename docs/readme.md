@@ -1,38 +1,108 @@
 # 实现一个简单的迷你Spring
 
-# 大致思路
 
-
-### 1. 项目结构
+## 1. 项目结构
 
 ```tex
-├── Application.java											//程序主入口
-├── service																//业务
-│   ├── UserController.java
-│   ├── UserDao.java
-│   └── UserService.java
-└── spring
-    ├── BeanDefinition.java								//类 bean的定义类 说明这里bean的各种属性。
-    ├── annotation												// 注解相关包
-    │   ├── Autowired.java 								//自动注入注解
-    │   ├── Component.java								//表示这是一个bean的注解
-    │   ├── ComponentScan.java  					//配置类中表示需要扫描的路径注解
-    │   └── Scope.java										//直接表示bean是 单例还是多例
-    ├── config														//配置相关包
-    │   ├── XiongApplicationConfig.java		//容器的配置 接口
-    │   └── impl													//实现
-    │       ├── ConfigurationImpl.java    //配置类形式的实现
-    │       └── XmlImpl.java							//读取外部xml文件的实现
-    ├── context														//容器相关包
-    │   ├── XiongContext.java							//容器顶级接口
-    │   └── impl													//容器实现
-    │       └── XiongApplicationContext.java //实现了容器接口的增强容器
-    └── enums															//枚举包
-        └── ScopeEnum.java								//单例还是多例枚举类
+.
+└── com
+    └── lixiang
+        ├── Application.java                            //测试
+        ├── service                                     //业务
+        │   ├── UserController.java
+        │   ├── UserDao.java
+        │   ├── UserService.java
+        │   ├── UserServiceInterface.java
+        │   └── XiongBeanPostProcessorImpl.java
+        └── spring                                      //Spring核心
+            ├── BeanDefinition.java                     //Bean定义类
+            ├── Utils.java                              //工具类
+            ├── annotation                              //注解包
+            │   ├── Autowired.java                //自动注入注解
+            │   ├── Component.java                //bean注解
+            │   ├── ComponentScan.java            //包扫描路径注解
+            │   └── Scope.java                    //单例多例注解
+            ├── config                                  //配置包
+            │   ├── XiongApplicationConfig.java   //配置接口
+            │   └── impl                          //实现
+            │       ├── ConfigurationImpl.java    //配置类实现
+            │       └── XmlImpl.java              //读取XML实现
+            ├── context                                 //容器包
+            │   ├── XiongContext.java             //容器接口
+            │   └── impl                          //容器实现包    
+            │       └── XiongApplicationContext.java    //主要实现类
+            ├── enums                                   //枚举包
+            │   └── ScopeEnum.java                //单例多例枚举
+            └── interfaces                              //接口包
+                ├── BeanNameAware.java                  //设置bean名称前置接口
+                ├── BeanPostProcessor.java              //前置后置处理器接口
+                └── InitializingBean.java               //初始化接口
 
 ```
 
-### 2. 实现增强容器的构造方法
+## 2. 容器接口
+
+```java
+/**
+ * 最基础的容器
+ *
+ * @author dushaoxiong@lixiang.com
+ * @version 1.0
+ * @date 2022/3/17 21:16
+ */
+public interface XiongContext {
+
+    /**
+     * 通过名称获取bean
+     * @param beanName
+     * @return
+     */
+    Object getBeanByName(String beanName);
+
+    /**
+     * 通过类型获取bean
+     * @param clazz
+     * @return
+     */
+    Object getBeanByClass(Class clazz);
+
+    /**
+     * 获取所有的bean名称
+     * @return
+     */
+    List<String> getAllBeanName();
+}
+```
+
+## 3. 容器实现
+
+- 主要的属性：
+
+```java
+    /**
+     * 配置类
+     */
+    private final Class configClazz;
+
+    /**
+     * bean定义map  key bean名称  value bean定义类
+     */
+    private ConcurrentHashMap<String, BeanDefinition> beanDefinitionMap = new ConcurrentHashMap<>();
+
+    /**
+     * 单例池 存放容器中所有的单例bean  key bean名称 value bean对象
+     */
+    private ConcurrentHashMap<String, Object> singletonPool = new ConcurrentHashMap<>();
+
+    /**
+     * 实现了该接口的所有bean集合
+     */
+    private ArrayList<BeanPostProcessor> beanPostProcessorArrayList = new ArrayList<>();
+```
+
+
+
+### 1. 实现构造方法
 
 1. 从配置类中读取ComponentScan的值 扫描该路径
 2. 通过反射循环创建该路径下的所有Java类
@@ -43,7 +113,7 @@
         2. 从注解中获取bean名称,bean类型及是否是单例，bean类型等。
            1. 添加到bean定义map中
         3. 判断该bean是否实现了BeanPostProcessor接口
-           1. 如果实现了，添加到对应的list中。
+           1. 如果实现了，通过反射创建对应的实例，并添加到对应的list(beanPostProcessorList)中。
 
 3. 创建bean定义map中的所有单例bean
    1. 循环map
@@ -53,31 +123,11 @@
 
           2. 放入单例池 `singletonPool`中
 
-### 3. 实现增强容器创建bean方法
+### 2. 实现createBean(String beanName,BeanDifinition beanDefinition)方法
 
-1. 通过参数中的bean定义对象从bean定义map中获取对应的bean类
-2. 利用反射通过bean类获取无参构造方法
-    - 如果获取失败，抛出异常
-3. 通过无参构造创建实例
-4. 解决依赖注入
+![image-20220326210028074](https://images-1301128659.cos.ap-beijing.myqcloud.com/image-20220326210028074.png)
 
-    1. 利用反射循环该实例的所有属性
-
-        - 如果属性上有AutoWirted注解 
-
-          1. 通过属性名称去容器中获取对应的bean
-          2. 设置属性的访问权限为可强制访问
-          3. 将容器中获取的bean设置到该属性中。
-5. 判断改实例是否实现了BeanNameAware接口
-    1. 如果实现了，则调用对应的setBeanName方法。
-6. 执行所有的前置处理器  传入beanName 和 bean，返回值赋值给该实例对象
-7. 如果该bean实现了initializingBean接口
-    1. 调用对应的方法
-
-8. 执行所有的后置处理器，返回值赋值给该实例对象
-9. 返回该实例
-
-### 4. 实现增强容器getBean(String beanName)方法
+### 3. 实现getBean(String beanName)方法
 
 - 判断bean定义map中是否有该beanName的key
     - 如果有
@@ -89,7 +139,7 @@
             - 创建bean并返回
     - 如果没有 抛出异常 `容器中没有该bean`
 
-### 5. 实现增强容器getBean(Class clazz)方法
+### 4. 实现getBean(Class clazz)方法
 
 - 循环bean定义map
   - 如果value(beanDefiniation)中的clazz和参数相同
@@ -98,6 +148,6 @@
   - 如果不同 结束此次循环
 - 循环结束，抛出 容器中没有该类型的bean异常
 
-### 6. 实现增强容器getAllBeanName()方法
+### 5. 实现getAllBeanName()方法
 
 - 将bean定义map的key转为list返回即可
