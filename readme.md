@@ -150,15 +150,15 @@ public interface XiongContext {
 
 - 将bean定义map的key转为list返回即可
 
-## 4、更多开源项目
+## 四、更多开源项目
 
 > 每天都会分享一些好玩，有趣，又沙雕的开源项目。或者是比较实用的开发工具。![Github推荐](https://gitee.com/ShaoxiongDu/imageBed/raw/master/image-20210820144130666.png)
 
-## 5、反馈及改进
+## 五、反馈及改进
 
 欢迎提出`issues`,看到就会回馈.并且将您添加到项目贡献者列表中。
 
-## 6、参与贡献（非常欢迎！）
+## 六、参与贡献（非常欢迎！）
 
 > 手动打字难免会有错别字，如果您在学习过程中发现了错别字或者需要补充及修正的知识点。
 >
@@ -172,6 +172,6 @@ public interface XiongContext {
 4. 新建 Pull Request，填写必要信息。
 5. 等待审核即可。通过之后会邮件通知您。
 
-## 7、许可证
+## 七、许可证
 
 在 MIT 许可下分发。有关更多信息，请参阅[`LICENSE`](./LICENSE)。
