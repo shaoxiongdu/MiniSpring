@@ -1,7 +1,7 @@
 # 实现一个简单的迷你Spring
 
 
-## 1. 项目结构
+## 一. 项目结构
 
 ```text
 .
@@ -40,7 +40,7 @@
 
 ```
 
-## 2. 容器接口
+## 二. 容器接口
 
 ```java
 /**
@@ -74,7 +74,7 @@ public interface XiongContext {
 }
 ```
 
-## 3. 容器实现
+## 三. 容器实现
 
 - 主要的属性：
 
@@ -100,9 +100,7 @@ public interface XiongContext {
     private ArrayList<BeanPostProcessor> beanPostProcessorArrayList = new ArrayList<>();
 ```
 
-
-
-### 1. 实现构造方法
+### 3.1. 实现构造方法
 
 1. 从配置类中读取ComponentScan的值 扫描该路径
 2. 通过反射循环创建该路径下的所有Java类
@@ -123,11 +121,11 @@ public interface XiongContext {
 
           2. 放入单例池 `singletonPool`中
 
-### 2. 实现createBean(String beanName,BeanDifinition beanDefinition)方法
+### 3.2. 实现createBean(String beanName,BeanDifinition beanDefinition)方法
 
 ![image-20220326210028074](https://images-1301128659.cos.ap-beijing.myqcloud.com/image-20220326210028074.png)
 
-### 3. 实现getBean(String beanName)方法
+### 3.3. 实现getBean(String beanName)方法
 
 - 判断bean定义map中是否有该beanName的key
     - 如果有
@@ -139,7 +137,7 @@ public interface XiongContext {
             - 创建bean并返回
     - 如果没有 抛出异常 `容器中没有该bean`
 
-### 4. 实现getBean(Class clazz)方法
+### 3.4. 实现getBean(Class clazz)方法
 
 - 循环bean定义map
   - 如果value(beanDefiniation)中的clazz和参数相同
@@ -148,6 +146,32 @@ public interface XiongContext {
   - 如果不同 结束此次循环
 - 循环结束，抛出 容器中没有该类型的bean异常
 
-### 5. 实现getAllBeanName()方法
+### 3.5. 实现getAllBeanName()方法
 
 - 将bean定义map的key转为list返回即可
+
+## 4、更多开源项目
+
+> 每天都会分享一些好玩，有趣，又沙雕的开源项目。或者是比较实用的开发工具。![Github推荐](https://gitee.com/ShaoxiongDu/imageBed/raw/master/image-20210820144130666.png)
+
+## 5、反馈及改进
+
+欢迎提出`issues`,看到就会回馈.并且将您添加到项目贡献者列表中。
+
+## 6、参与贡献（非常欢迎！）
+
+> 手动打字难免会有错别字，如果您在学习过程中发现了错别字或者需要补充及修正的知识点。
+>
+> 欢迎及时修正本项目，让我们一起为开源做贡献！ 
+
+具体步骤如下:
+
+1. Fork 本仓库
+2. 新建 Feat_xxx 分支
+3. 提交代码
+4. 新建 Pull Request，填写必要信息。
+5. 等待审核即可。通过之后会邮件通知您。
+
+## 7、许可证
+
+在 MIT 许可下分发。有关更多信息，请参阅[`LICENSE`](./LICENSE)。
