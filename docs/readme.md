@@ -3,7 +3,7 @@
 
 ## 1. 项目结构
 
-```tex
+```text
 .
 └── com
     └── lixiang
